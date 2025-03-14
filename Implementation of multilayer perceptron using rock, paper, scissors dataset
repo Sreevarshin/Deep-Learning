@@ -1,0 +1,47 @@
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.neural_network import MLPClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from PIL import Image
+import kagglehub
+path = kagglehub.dataset_download("drgfreeman/rockpaperscissors")
+def load_dataset(path):
+    image_size = (64, 64)
+    classes = ['rock', 'paper', 'scissors']
+    images, labels = [], []
+    for class_name in classes:
+        class_path = os.path.join(path, class_name)
+        for filename in os.listdir(class_path):
+            if filename.endswith(('.png', '.jpg', '.jpeg')):
+                img_path = os.path.join(class_path, filename)
+                try:
+                    img = Image.open(img_path).convert('L')
+                    img = img.resize(image_size)
+                    images.append(np.array(img).flatten() / 255.0)
+                    labels.append(class_name)
+                except Exception as e:
+                    pass
+    X, y = np.array(images), np.array(labels)
+    le = LabelEncoder()
+    return X, le.fit_transform(y), le
+X, y, label_encoder = load_dataset(path)
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+mlp = MLPClassifier(hidden_layer_sizes=(128, 64), activation='relu', solver='adam', max_iter=50, random_state=42, verbose=True)
+mlp.fit(X_train, y_train)
+y_pred = mlp.predict(X_test)
+print(f"Accuracy: {accuracy_score(y_test, y_pred) * 100:.2f}%")
+print(classification_report(y_test, y_pred))
+print(confusion_matrix(y_test, y_pred))
+fig, axes = plt.subplots(3, 3, figsize=(8, 8))
+for i, ax in enumerate(axes.flat):
+    idx = np.random.randint(0, X_test.shape[0])
+    ax.imshow(X_test[idx].reshape(64, 64), cmap='gray')
+    ax.set_title(f"Predicted: {label_encoder.inverse_transform([y_pred[idx]])[0]}, True: {label_encoder.inverse_transform([y_test[idx]])[0]}")
+    ax.axis('off')
+plt.tight_layout()
+plt.show()
